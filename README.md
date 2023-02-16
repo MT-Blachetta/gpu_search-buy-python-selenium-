@@ -19,4 +19,4 @@
 - **Selenium** for python to run the automated script and give access to browser control via driver.
 
 ### Author
- - **Sasank Ganapathiraju**
+ - **Michael Blachetta**
