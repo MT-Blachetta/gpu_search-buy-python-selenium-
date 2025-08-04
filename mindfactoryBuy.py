@@ -1,3 +1,11 @@
+"""Mindfactory GPU purchasing bot using Selenium and web scraping.
+
+The script searches the German retailer mindfactory.de for specific GPU models
+and tries to add matching products to the cart. When a potential offer is found
+it opens the browser, logs in and alerts the user with a sound. Only comments
+and documentation were added to clarify the intent of the original script.
+"""
+
 import requests
 from bs4 import BeautifulSoup as scrape
 import time
@@ -33,15 +41,16 @@ keywordsbook = { 'rtx3060tiA': Krtx3060tiA, 'rtx3060tiB': Krtx3060tiB, 'rtx3070'
 upper_price =  {  'rtx3060tiA': 1000, 'rtx3060tiB': 1000, 'rtx3070': 1000, 'rtx3080': 1550, 'rtx3090': 2500 }
 identityPrice = { 'rtx3060tiA': 600, 'rtx3060tiB': 600 ,'rtx3070': 600, 'rtx3080':  700, 'rtx3090': 1650 } # product verification criterion
 
-def alert_mindfactory(hyperlink): # driver = webdriver.Firefox('./geckodriver/geckodriver')
-    
+def alert_mindfactory(hyperlink):  # driver = webdriver.Firefox('./geckodriver/geckodriver')
+    """Open the given product link and prepare checkout."""
+
     # Load chrome
     driver = webdriver.Chrome('./chromedriver/chromedriver')
-    #driver = webdriver.Firefox('./geckodriver/geckodriver')
-    #driver.get("https://www.mindfactory.de/")
-    #driver.find_element_by_id("checkcookie").click()
-    #driver.maximize_window()
-    
+    # driver = webdriver.Firefox('./geckodriver/geckodriver')
+    # driver.get("https://www.mindfactory.de/")
+    # driver.find_element_by_id("checkcookie").click()
+    # driver.maximize_window()
+
     driver.get(hyperlink)
     driver.find_element_by_id("checkcookie").click()
     driver.maximize_window()
@@ -50,35 +59,34 @@ def alert_mindfactory(hyperlink): # driver = webdriver.Firefox('./geckodriver/ge
     driver.get("https://www.mindfactory.de/order_login.php")
 
     mail = driver.find_element_by_id("login_email_address")
-    #mail.clear()
     mail.send_keys("michaelblachetta@gmail.com")
     psw = driver.find_element_by_id("login_password")
-    #psw.clear()
     psw.send_keys("M#yxcvbnm123")
     form = driver.find_element_by_id("login_form")
     form.submit()
-    
+
     driver.find_element_by_name("conditions").click()
     driver.find_element_by_name("privacy").click()
     driver.find_element_by_name("disclaimer").click()
-    #autobuy function
-    #driver.find_element_by_css_selector('div.col-sm-8:nth-child(3) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(4) > button:nth-child(1)').click()
-    
+    # autobuy function
+    # driver.find_element_by_css_selector('div.col-sm-8:nth-child(3) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(4) > button:nth-child(1)').click()
+
     playsound('alert.mp3')
     answer = input("press any key to continue... ")
-    
-    #if answer == 'y':
-    #    bl.append(pname)
-    #root = tk.Tk()
-    #MsgBox = tk.messagebox.askquestion ('addBlcklist','Do you want to add the item to the blacklist ?',icon = 'warning')
-    #if MsgBox == 'yes':
-    #    bl.append(pname)
-    
-    #root.destroy()
-        
+
+    # if answer == 'y':
+    #     bl.append(pname)
+    # root = tk.Tk()
+    # MsgBox = tk.messagebox.askquestion ('addBlcklist','Do you want to add the item to the blacklist ?',icon = 'warning')
+    # if MsgBox == 'yes':
+    #     bl.append(pname)
+
+    # root.destroy()
+
     return
 
-def checkNameList(name,keylist):
+def checkNameList(name, keylist):
+    """Return True if all keywords are contained in the name."""
 
     target = name.upper()
 
@@ -119,13 +127,11 @@ def connect_url(url):
         return False
 """
 
-def initSearch_mindfactory(pid,query):
-    
-    #query = "rtx+3070"
-    #pid = 'rtx3070'
-    
-    driver.get("https://www.mindfactory.de/search_result.php?search_query="+query)
-    blacklist = [] 
+def initSearch_mindfactory(pid, query):
+    """Initial search that builds a blacklist of already seen products."""
+
+    driver.get("https://www.mindfactory.de/search_result.php?search_query=" + query)
+    blacklist = []
 
     titelinfo = driver.title
 
@@ -137,29 +143,24 @@ def initSearch_mindfactory(pid,query):
             for i in itemlist:
                 pname = i.find_element_by_class_name("pname").text
                 prc = i.find_element_by_class_name("pprice").text
-                prc = prc[2:].replace('.','').split(',')[0]
-                #print(str(prc))
+                prc = prc[2:].replace('.', '').split(',')[0]
                 pprice = float(prc)
-                #print(str((upper_price[pid]+50 > pprice > identityPrice[pid])))
 
-                if checkNameList(pname,keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
+                if checkNameList(pname, keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
                     link = i.find_element_by_tag_name("a").get_attribute("href")
-                    #print(f"name: {pname}\npreis: {prc} €\nlink: {link}")
+                    # print(f"name: {pname}\npreis: {prc} €\nlink: {link}")
                     alert_mindfactory(link)
 
                 blacklist.append(pname)
 
-
     return blacklist
                     
-def search_mindfactory(pid,query,blacklist):
-    # ITERATION
+def search_mindfactory(pid, query, blacklist):
+    """Repeatedly search Mindfactory and alert on new matching products."""
 
-    
     blacklist_ = blacklist
 
-    if doc:        
-
+    if doc:
         titelinfo = doc.title.text
 
         if titelinfo.startswith("Suche nach"):
@@ -172,16 +173,15 @@ def search_mindfactory(pid,query,blacklist):
 
                     if pname not in blacklist:
                         prc = i.find(class_="pprice").text
-                        prc = prc[2:-1].replace('.','').replace(',','.')
-                        print("new product found: "+pname+" , "+prc+" €")
+                        prc = prc[2:-1].replace('.', '').replace(',', '.')
+                        print("new product found: " + pname + " , " + prc + " €")
                         pprice = float(prc)
-                        
 
-                        if checkNameList(pname,keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
+                        if checkNameList(pname, keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
                             print("FOUND - product is matching, connecting to URL... ")
                             link = i.find('a').get("href")
-                            doc = connect_url(link) # no content check !
-                            
+                            doc = connect_url(link)  # no content check !
+
                             # Liefercheck
                             lieferbarkeit = doc.find(id="priceCol")
                             ok = lieferbarkeit.find(id="btn-buy-productInfo")
@@ -189,12 +189,9 @@ def search_mindfactory(pid,query,blacklist):
                                 print('connected and avaible, start buying... ')
                                 alert_mindfactory(link)
 
-
                         blacklist_.append(pname)
 
-
-    
-    return blacklist_ 
+    return blacklist_
 
 
 
@@ -207,6 +204,7 @@ if __name__ == '__main__':
 
     print('initialisation successfull, start surveillance...')
 
+    # Endless monitoring loop
     while(True):
         for i, q in enumerate(querylist):
             #print('\niteration '+str(i))

@@ -1,3 +1,11 @@
+"""Mindfactory GPU stock notifier.
+
+This script periodically searches mindfactory.de for various GPU models and
+sends an SMS message when a matching product is available within a specified
+price range. Only comments and documentation were added; no functional
+behaviour was changed.
+"""
+
 import requests
 from bs4 import BeautifulSoup as scrape
 import clx.xms
@@ -30,15 +38,17 @@ keywordsbook = { 'rtx3060tiA': Krtx3060tiA, 'rtx3060tiB': Krtx3060tiB, 'rtx3070'
 upper_price =  {  'rtx3060tiA': 1000, 'rtx3060tiB': 1000, 'rtx3070': 1000, 'rtx3080': 1550, 'rtx3090': 2500 }
 identityPrice = { 'rtx3060tiA': 600, 'rtx3060tiB': 600 ,'rtx3070': 600, 'rtx3080':  700, 'rtx3090': 1650 } # product verification criterion
 
-def notify(url,ptitle,pprice):
+def notify(url, ptitle, pprice):
+    """Send an SMS with product details."""
 
-    message = "product: "+str(ptitle)+"\nprice: "+str(pprice)+" €\n"+str(url)
+    message = "product: " + str(ptitle) + "\nprice: " + str(pprice) + " €\n" + str(url)
     client = clx.xms.Client('2f70139a045b49bda73198693be5db46', 'fa5b002cc9d344b889d9ba71b06679d0')
-    client.create_text_message(sender='123456789',recipient='491706554198', body=message)
-    print('\n'+message+'\n')
+    client.create_text_message(sender='123456789', recipient='491706554198', body=message)
+    print('\n' + message + '\n')
 
 
-def checkNameList(name,keylist):
+def checkNameList(name, keylist):
+    """Return True if all keywords are present in the name."""
 
     target = name.upper()
 
@@ -50,45 +60,44 @@ def checkNameList(name,keylist):
 
 
 def connect_url(url):
+    """Retrieve the page content for ``url`` with retry logic."""
+
     while True:
         try:
             r = requests.get(url, timeout=9)
             break
         except requests.exceptions.Timeout:
-            print("ERROR: The request timed out, try again... "+url)
+            print("ERROR: The request timed out, try again... " + url)
             time.sleep(0.1)
         except requests.exceptions.HTTPError:
-            print("ERROR: An HTTP error occurred, try again... "+url)
+            print("ERROR: An HTTP error occurred, try again... " + url)
             time.sleep(0.1)
         except requests.exceptions.ConnectionError:
-            print("ERROR: A Connection error occurred, try again... "+url)
+            print("ERROR: A Connection error occurred, try again... " + url)
             time.sleep(0.1)
         except requests.exceptions.SSLError:
-            print("ERROR: An SSL error occurred, try again... "+url)
+            print("ERROR: An SSL error occurred, try again... " + url)
             time.sleep(0.1)
-        except requests.exceptions.StreamConsumedError: 
-            print("ERROR: The content for this response was already consumed, try again... "+url)
+        except requests.exceptions.StreamConsumedError:
+            print("ERROR: The content for this response was already consumed, try again... " + url)
             time.sleep(0.1)
-        except requests.exceptions.RetryError: 
-            print("ERROR: Custom retries logic failed, try again... "+url)
+        except requests.exceptions.RetryError:
+            print("ERROR: Custom retries logic failed, try again... " + url)
             time.sleep(0.1)
 
     if r.status_code == requests.codes.ok:
         return scrape(r.content, 'lxml')
-    else: 
+    else:
         return False
 
 
-def initSearch_mindfactory(pid,query):
-    
-    #query = "rtx+3070"
-    #pid = 'rtx3070'
-    
-    doc = connect_url("https://www.mindfactory.de/search_result.php?search_query="+query)
-    blacklist = [] 
+def initSearch_mindfactory(pid, query):
+    """Initial search to build a blacklist of existing products."""
 
-    if doc:        
+    doc = connect_url("https://www.mindfactory.de/search_result.php?search_query=" + query)
+    blacklist = []
 
+    if doc:
         titelinfo = doc.title.text
 
         if titelinfo.startswith("Suche nach"):
@@ -97,30 +106,28 @@ def initSearch_mindfactory(pid,query):
 
                 for i in itemlist:
                     # check item
-                    pname = i.find(class_="pname").text 
-                    #                if pname not in blacklist:
+                    pname = i.find(class_="pname").text
+                    # if pname not in blacklist:
                     prc = i.find(class_="pprice").text
-                    prc = prc[2:-1].replace('.','').replace(',','.')
+                    prc = prc[2:-1].replace('.', '').replace(',', '.')
                     pprice = float(prc)
 
-                    if checkNameList(pname,keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
+                    if checkNameList(pname, keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
                         link = i.find('a').get("href")
-                        #print("product: "+str(pname)+"\nprice: "+prc+" €\n"+link)
-                        notify( link, pname, pprice )
+                        # print("product: "+str(pname)+"\nprice: "+prc+" €\n"+link)
+                        notify(link, pname, pprice)
 
                     blacklist.append(pname)
 
-
     return blacklist
                     
-def search_mindfactory(pid,query,blacklist):
-    # ITERATION
+def search_mindfactory(pid, query, blacklist):
+    """Repeatedly search and notify about new matching products."""
 
-    doc = connect_url("https://www.mindfactory.de/search_result.php?search_query="+query)
+    doc = connect_url("https://www.mindfactory.de/search_result.php?search_query=" + query)
     blacklist_ = blacklist
 
-    if doc:        
-
+    if doc:
         titelinfo = doc.title.text
 
         if titelinfo.startswith("Suche nach"):
@@ -133,28 +140,25 @@ def search_mindfactory(pid,query,blacklist):
 
                     if pname not in blacklist:
                         prc = i.find(class_="pprice").text
-                        prc = prc[2:-1].replace('.','').replace(',','.')
-                        print("new product found: "+pname+" , "+prc+" €")
+                        prc = prc[2:-1].replace('.', '').replace(',', '.')
+                        print("new product found: " + pname + " , " + prc + " €")
                         pprice = float(prc)
-                        
 
-                        if checkNameList(pname,keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
+                        if checkNameList(pname, keywordsbook[pid]) and (upper_price[pid] > pprice > identityPrice[pid]):
                             print("FOUND - product is matching, connecting to URL... ")
                             link = i.find('a').get("href")
-                            doc = connect_url(link) # no content check !
-                            
+                            doc = connect_url(link)  # no content check !
+
                             # Liefercheck
                             lieferbarkeit = doc.find(id="priceCol")
                             ok = lieferbarkeit.find(id="btn-buy-productInfo")
                             if ok:
                                 print('connected and avaible, start notification... ')
-                                notify( link, pname, pprice )
+                                notify(link, pname, pprice)
 
                         blacklist_.append(pname)
 
-
-    
-    return blacklist_ 
+    return blacklist_
 
 
 
@@ -167,6 +171,7 @@ if __name__ == '__main__':
 
     print('initialisation successfull, start surveillance...')
 
+    # Endless monitoring loop
     while(True):
         for i, q in enumerate(querylist):
             #print('\niteration '+str(i))
